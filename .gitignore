@@ -1,0 +1,57 @@
+# Ambientes Virtuales (Backend)
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+env/
+.env
+backend/.env
+
+# Configuración y Secretos
+*.pem
+
+# Python (Backend)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# FastAPI / Herramientas (Backend)
+.pytest_cache/
+.coverage
+htmlcov/
+alembic.ini
+
+# Frontend (Vue.js / Node)
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm/
+
+# Herramientas de Frontend (Vite/Nuxt/Vue CLI)
+.nuxt/
+.output/
+.vuepress/dist/
+coverage/
+.yarn/
+.pnp.*
+
+# IDEs y Editores (Global)
+.vscode/
+.agents/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Bases de Datos locales (por si llegas a usar SQLite)
+*.sqlite3
+*.db

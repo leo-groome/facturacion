@@ -61,7 +61,7 @@ El sistema garantiza el aislamiento de datos mediante:
 ## 🗺 Roadmap de Implementación
 
 - [x] **Fase 1:** Setup de FastAPI + Middleware de Multitenancy + Conexión a Neon.
-- [ ] **Fase 2:** Cliente de Facturama y módulo de carga de CSD (Back + Front).
+- [x] **Fase 2:** Cliente de Facturama y módulo de carga de CSD (Back + Front).
 - [ ] **Fase 3:** Formulario de emisión de facturas con validación.
 - [ ] **Fase 4:** Explorador de facturas con descarga de archivos y flujo de cancelación.
 - [ ] **Fase 5:** Integración vía API Key para servicios externos.

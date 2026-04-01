@@ -28,6 +28,7 @@ Debes comunicarte usando un tono profesional, analítico, directo y eminentement
 - **Frontend (Vue 3):**
   - **Composition API:** Uso exclusivo de Composition API con el azúcar sintáctico `<script setup>`. Está terminantemente prohibido usar Options API u organizar componentes con mezcla de conceptos antiguos de Vue 2.
   - **Arquitectura de Componentes:** Diseña componentes pequeños, atómicos y altamente funcionales. El estado que deba sobrevivir entre páginas se guardará de forma limpia y reactiva usando `Pinia`.
+- **No Emojis:** Está **estrictamente prohibido** el uso de emojis en todo el código fuente, incluyendo comentarios, cadenas de texto, logs y nombres de variables. El código debe mantener un estándar profesional y técnico absoluto.
 
 ### B. Seguridad y Autorización (Crucial)
 - **Validación JWT (JSON Web Tokens):** El agente debe auditar y validar constantemente la identidad de las sesiones simuladas. **No se permite realizar ninguna operación en base de datos sin extraer y comprobar primero un token válido inyectado en los headers de la solicitud HTTP del usuario.**
@@ -35,6 +36,10 @@ Debes comunicarte usando un tono profesional, analítico, directo y eminentement
   - El sistema segrega la infraestructura bajo el patrón "Shared Schema", identificando a cada quien mediante el UUID `organization_id`.
   - **Obligatorio:** Cada consulta, creación, eliminación o actualización enviada hacia PostgreSQL (Neon) **DEBE incluir explícitamente y sin omisión el filtro contextual del `organization_id`**.
   - **Prohibido:** Retornar una lista generalizada que ignore el contexto de la empresa o no incluya este parámetro del usuario actualmente autenticado extraído de su token al hacer peticiones API.
+
+### C. Cero Simulaciones (Production-Ready Code)
+- **Prohibición Total de Mocks:** Este es un proyecto destinado a producción. **ESTÁ ESTRICTAMENTE PROHIBIDO** crear "simulaciones de servidor", usar "dummy data", listas en crudo hardcodeadas o funciones tipo "mock" incompletas en lugar de integraciones reales.
+- Todo código asíncrono, lógicas de bases de datos y sistemas de validación (headers) deben construirse con el código final evaluando en todo momento esquemas, apis de integradores reales y middlewares verdaderos sin importar si el desarrollo parece prematuro.
 
 ## 4. Security Checklist & Vulnerability Prevention
 
@@ -82,7 +87,7 @@ Todo flujo frontal de Axios inyectará forzosamente y sin excepciones el token d
 
 Para la correcta ejecución del roadmap indicado en el `README.md`, el agente deberá regirse invariablemente por las siguientes indicaciones especiales (Action Plan Guidelines) al abordar cada fase:
 
-### Fase 2: Cliente de Facturama y Módulo de Carga de CSD (✅ Implementada)
+### Fase 2: Cliente de Facturama y Módulo de Carga de CSD (Implementada)
 - **Backend (`slices/emisores`):** 
   - Sistema basado en `httpx` implementado globalmente en `FacturamaClient`.
   - El CSD está blindado aplicando criptografía simétrica (Fernet AES) atado a variables de sistema `CSD_ENCRYPTION_KEY` antes de escribir en DB.
@@ -90,23 +95,27 @@ Para la correcta ejecución del roadmap indicado en el `README.md`, el agente de
   - Vistas y componentes creados (`CsdUploader.vue`, `OnboardingView.vue`) capturando `FormData` multipart.
   - Interceptor Axios global (`api.ts`) que extrae el JWT de localStorage para garantizar la regla de seguridad del tenant.
 
-### Fase 3: Formulario de Emisión de Facturas
+### Fase 3: Formulario de Emisión de Facturas (Implementada)
 - **Backend (`slices/facturacion` & `slices/catalogos`):**
-  - El motor de cálculo debe basarse en genéricos decimales rigurosos, evitando los errores de coma flotante de tipos float nativos.
-  - Proveer un proxy con caché en `catalogos` para las búsquedas predictivas de ProdServ e impuestos con el fin de mitigar el rate limit de Facturama.
+  - Implementado motor transaccional `preview` que emplea librerías `Decimal` nativas de python de forma rigurosa.
+  - Conectado proxy productivo hacia integradores HTTPX reales en `/catalogos/prodserv` para consultar verdaderas claves SAT sin mocks.
 - **Frontend (Smart Form):**
-  - Consolidar la orquestación e inyección de todos los conceptos y sus impuestos dinámicos en una store reactiva usando Vue Pinia. 
-  - Toda búsqueda de catálogos SAT debe contar con un *debounce* para la red.
-  - El borrador ("Preview") consultará endpoints de estructuración y validación local sin disparar el consumo de un timbre fiscal crediticio real.
+  - Desarrollada `Store` con estado reactivo puro y computable sumando IEPS, IVA e importes a través de *Vue Pinia* (`facturacion.ts`).
+  - Implementado Formulario Autocompletable `SmartForm.vue` con "Debounce" preventivo local para búsquedas de prodservs a servidor sin asediar el backend.
 
-### Fase 4: Explorador de Facturas y Flujo de Cancelación
+### Fase 4: Explorador de Facturas y Flujo de Cancelación (Implementada)
 - **Backend:** 
-  - Restricción Absoluta: Todo endpoint explorador debe exigir paginación y filtrar ineludiblemente las facturas por `organization_id`.
-  - La lógica de cancelación requerirá orquestar y tipar enumeradores exactos (01, 02, 03, 04) de justificación requeridos por el SAT. 
+  - Restricción Absoluta en Capa Datos: Endpoints parametrizados forzando a DB a responder solo esquemas Pydantic ligados al token del tenant.
+  - Orquestador de Cancelación validando y ejecutando lógicamente motivos paramétricos (01, 02, 03, 04) con exigencia referencial sustituta (UUID's). 
+  - Sistema de Streaming (StreamingResponse) retornando buffers binarios `io.BytesIO` directamente desde orígenes seguros aislando la nube.
 - **Frontend (Explorador):**
-  - Las descargas de formatos ZIP/XML/PDF deben manejarse capturando promesas `Blob` de Axios (inyectando siempre JWT), prohibiendo descargas open-get que expongan URLs perennes.
+  - Consolidada vista `ExploradorView.vue` adjuntando componente maestro `DataGrid.vue` y ventana iterativa de cancelación con Wizard modal.
+  - Las descargas bloquean `HREF` abiertos. Construyen URL temporales con `window.URL.createObjectURL(Blob)` desde Axios asegurando que todos los interceptores de token se cumplan en el request binario GET.
 
-### Fase 5: Integración vía API Key Externa
-- **Backend:** 
-  - Extender seguridad creando un middleware `Depends` validando custom headers `x-api-key`.
-  - Las API Keys del tenant serán presentadas solo 1 vez en crudo al generarse, y almacenadas en Base de Datos mediante un hash unidireccional (Bcrypt/Argon2).
+### Fase 5: Integración vía API Key Externa (Implementada y Verificada)
+- **Backend (`slices/apikeys`):** 
+  - Generación de token urlsafe pseudoaleatorio encriptado irrecuperablemente mediante `bcrypt` y guardado físicamente sin dejar fugas previas a la base de datos PostgreSQL.
+  - Implementado middleware propio de concurrencia e In-Memory "Rate Limiting" (`rate_limiter_dependency`) configurado a 100/rpm evitando espasmos y bloqueando abusos.
+- **Frontend (`src/components/apikeys/KeyManager.vue`):**
+  - Consolidado panel SaaS para expedición interactiva. 
+  - La clave asimétrica del UUID maestro se expone al cliente **únicamente una vez** mediante un modal irrevocable.

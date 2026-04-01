@@ -1,10 +1,10 @@
-# 🚀 Vanta Billing System (Facturama Multiemisor)
+# Vanta Billing System (Facturama Multiemisor)
 
 Este repositorio contiene el **microservicio** de facturación electrónica de **Vanta Solutions**. Está diseñado como un sistema desacoplado para gestionar el ciclo fiscal de múltiples organizaciones (tenants) mediante la integración con Facturama.
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 ### Frontend (Microservicio)
 - **Framework:** Vue 3 (Vite + TypeScript).
@@ -20,7 +20,7 @@ Este repositorio contiene el **microservicio** de facturación electrónica de *
 
 ---
 
-## 🏗 Arquitectura del Sistema
+## Arquitectura del Sistema
 
 ### 1. Backend: Vertical Slices
 Cada funcionalidad es un "Slice" independiente que contiene su lógica, modelos y endpoints:
@@ -50,7 +50,7 @@ El front se divide en cuatro áreas críticas para la gestión fiscal:
 
 ---
 
-## 🔑 Estrategia Multitenant
+## Estrategia Multitenant
 
 El sistema garantiza el aislamiento de datos mediante:
 1. **Contexto de Organización:** El Frontend envía el `organization_id` en los headers de cada petición.
@@ -58,28 +58,33 @@ El sistema garantiza el aislamiento de datos mediante:
 
 ---
 
-## 🗺 Roadmap de Implementación
+## Roadmap de Implementación
 
 - [x] **Fase 1:** Setup de FastAPI + Middleware de Multitenancy + Conexión a Neon.
 - [x] **Fase 2:** Cliente de Facturama y módulo de carga de CSD (Back + Front).
-- [ ] **Fase 3:** Formulario de emisión de facturas con validación.
-- [ ] **Fase 4:** Explorador de facturas con descarga de archivos y flujo de cancelación.
-- [ ] **Fase 5:** Integración vía API Key para servicios externos.
+- [x] **Fase 3:** Formulario de emisión de facturas con validación.
+- [x] **Fase 4:** Explorador de facturas con descarga de archivos y flujo de cancelación.
+- [x] **Fase 5:** Integración vía API Key para servicios externos.
 
 ---
 
-## 🚀 Guía de Inicio Rápido
+## Guía de Inicio Rápido
 
 1. **Backend:**
+   Usa la version de python 3.12 / Tienes que instalar la version manualemtene
+   El comando para usar crear el venv con la version 3.12 es:
+   ```bash
+   py -3.12 -m venv venv
+   ```
    ```bash
    cd backend
-   python -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    uvicorn app.main:app --reload
    ```
 
 2. **Frontend:**
+   
    ```bash
    cd frontend
    pnpm install

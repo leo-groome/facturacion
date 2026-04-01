@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Header
 import base64
 import os
 from cryptography.fernet import Fernet
@@ -7,11 +7,10 @@ from .facturama_client import FacturamaClient
 
 router = APIRouter(prefix="/emisores", tags=["Emisores"])
 
-# Dependencia simulada (JWT Auth guard)
-async def get_current_organization_id() -> str:
-    # TODO: Implementar desencriptado de JWT real de headers de autorizacion.
-    # Retorna un organization_id predeterminado temporal
-    return "org_01H123ABCD_FAKE"
+async def get_current_organization_id(
+    x_organization_id: str = Header(..., description="ID real inyectado por el proxy")
+) -> str:
+    return x_organization_id
 
 def get_encryptor() -> Fernet:
     """Devuelve instancia Fernet para cifrar secretos guardados en DB."""

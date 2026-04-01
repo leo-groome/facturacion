@@ -26,4 +26,11 @@ async def root():
 API_PREFIX = "/api/v1"
 
 from app.slices.emisores.router import router as emisores_router
+from app.slices.catalogos.router import router as catalogos_router
+from app.slices.facturacion.router import router as facturacion_router
+from app.slices.apikeys.router import router as apikeys_router
+
 app.include_router(emisores_router, prefix=API_PREFIX)
+app.include_router(catalogos_router, prefix=API_PREFIX)
+app.include_router(facturacion_router, prefix=API_PREFIX)
+app.include_router(apikeys_router, prefix=API_PREFIX)

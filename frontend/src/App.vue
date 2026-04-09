@@ -13,7 +13,7 @@ const navLinks = [
 <template>
   <div class="flex h-screen bg-slate-50 overflow-hidden font-sans">
     <!-- Sidebar -->
-    <aside class="w-72 bg-slate-900 text-white flex flex-col border-r border-slate-800">
+    <aside v-if="!route.meta.public" class="w-72 bg-slate-900 text-white flex flex-col border-r border-slate-800">
       <div class="p-8">
         <h1 class="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">
           VANTA
@@ -47,9 +47,9 @@ const navLinks = [
     </aside>
 
     <!-- Content Area -->
-    <main class="flex-1 overflow-y-auto bg-white/50 backdrop-blur-sm relative">
-      <div class="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] -z-10"></div>
-      <div class="max-w-7xl mx-auto p-8 lg:p-12">
+    <main class="flex-1 overflow-y-auto bg-white/50 backdrop-blur-sm relative" :class="{ 'p-0': route.meta.public }">
+      <div v-if="!route.meta.public" class="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] -z-10"></div>
+      <div :class="route.meta.public ? '' : 'max-w-7xl mx-auto p-8 lg:p-12'">
         <RouterView v-slot="{ Component }">
           <transition 
             enter-active-class="transition duration-300 ease-out"

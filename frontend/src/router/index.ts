@@ -4,6 +4,11 @@ import EmisionView from '../views/EmisionView.vue'
 import ExploradorView from '../views/ExploradorView.vue'
 import AuthView from '../views/AuthView.vue'
 
+const isAuthenticated = () => {
+  const token = localStorage.getItem('token')
+  return !!(token && token !== 'null' && token !== 'undefined')
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -16,7 +21,7 @@ const router = createRouter({
     {
       path: '/',
       redirect: () => {
-        return localStorage.getItem('token') ? { name: 'onboarding' } : { name: 'login' }
+        return isAuthenticated() ? { name: 'onboarding' } : { name: 'login' }
       }
     },
     {
@@ -49,12 +54,12 @@ const router = createRouter({
  * 3. Si el usuario ya está autenticado, previene el acceso al login enviándolo a onboarding.
  */
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = !!localStorage.getItem('token')
+  const loggedIn = isAuthenticated()
 
-  if (!to.meta.public && !isAuthenticated) {
+  if (!to.meta.public && !loggedIn) {
     // Intento de acceder a ruta privada sin estar autenticado
     next({ name: 'login' })
-  } else if (to.name === 'login' && isAuthenticated) {
+  } else if (to.name === 'login' && loggedIn) {
     // Usuario ya autenticado intentando volver al login
     next({ name: 'onboarding' })
   } else {

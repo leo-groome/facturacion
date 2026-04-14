@@ -1,16 +1,12 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Header
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 import base64
 import os
 from cryptography.fernet import Fernet
 from .schema import CSDUploadResponse
 from .facturama_client import FacturamaClient
+from app.core.dependencies import get_current_tenant
 
 router = APIRouter(prefix="/emisores", tags=["Emisores"])
-
-async def get_current_organization_id(
-    x_organization_id: str = Header(..., description="ID real inyectado por el proxy")
-) -> str:
-    return x_organization_id
 
 def get_encryptor() -> Fernet:
     """Devuelve instancia Fernet para cifrar secretos guardados en DB."""
@@ -24,8 +20,8 @@ async def upload_csd(
     rfc: str = Form(..., min_length=12, max_length=13, description="RFC del contribuyente"),
     cer_file: UploadFile = File(..., description="Archivo .cer"),
     key_file: UploadFile = File(..., description="Archivo .key"),
-    password: str = Form(..., description="Contraseña del CSD"),
-    org_id: str = Depends(get_current_organization_id)
+    password: str = Form(..., description="Contrasena del CSD"),
+    tenant: dict = Depends(get_current_tenant)
 ):
     """
     Endpoint de carga asíncrona CSD multi-tenant.
@@ -48,7 +44,7 @@ async def upload_csd(
     encrypted_password = encryptor.encrypt(password.encode()).decode()
     encrypted_key = encryptor.encrypt(key_bytes).decode()
     
-    # TODO: Almacenar CSD en PostgreSQL filtrado (org_id, encrypted_key, encrypted_password)
+    # TODO: Almacenar CSD en PostgreSQL filtrado (tenant["tenant_id"], encrypted_key, encrypted_password)
     
     # Subida al API externa
     client = FacturamaClient()

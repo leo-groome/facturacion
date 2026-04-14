@@ -1,27 +1,24 @@
-from fastapi import APIRouter, Depends, Query, Header, HTTPException
-from typing import List, Dict, Any
+from fastapi import APIRouter, Depends, Query, HTTPException
+from typing import Dict
 from .schema import CatalogoSearchResponse, CatalogoItemResponse
 import httpx
 import base64
 import os
+from app.core.dependencies import get_current_tenant
 
-router = APIRouter(prefix="/catalogos", tags=["Catálogos SAT"])
+router = APIRouter(prefix="/catalogos", tags=["Catalogos SAT"])
 
 CATALOGO_CACHE: Dict[str, CatalogoSearchResponse] = {}
-
-async def get_current_organization_id(
-    x_organization_id: str = Header(..., description="ID real del tenant inyectado por el gateway/auth")
-) -> str:
-    return x_organization_id
 
 @router.get("/prodserv", response_model=CatalogoSearchResponse)
 async def buscar_prod_serv(
     keyword: str = Query(..., min_length=3, description="Palabra clave a buscar"),
-    org_id: str = Depends(get_current_organization_id)
+    tenant: dict = Depends(get_current_tenant)
 ):
     """
-    Proxy asíncrono hacia integrador real para Claves ProdServ.
-    No se permite simulación, impacta API externa en producción.
+    Proxy asincrono hacia integrador real para Claves ProdServ.
+    No se permite simulacion, impacta API externa en produccion.
+    Se requiere autenticacion JWT valida (tenant extraido del token).
     """
     cache_key = f"prodserv_{keyword.lower()}"
     if cache_key in CATALOGO_CACHE:

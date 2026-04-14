@@ -1,0 +1,6 @@
+Path: /, Method: GET
+Path: /api/v1/auth/signup, Method: POST
+Path: /api/v1/auth/signup, Method: POST
+Path: /, Method: GET
+Path: /, Method: GET
+Path: /api/v1/auth/signup, Method: POST

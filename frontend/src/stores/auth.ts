@@ -3,7 +3,10 @@ import { ref, computed } from 'vue'
 import api from '@/services/api'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem('token'))
+  const initialToken = localStorage.getItem('token')
+  const token = ref<string | null>(
+    (initialToken && initialToken !== 'null' && initialToken !== 'undefined') ? initialToken : null
+  )
   const user = ref<any>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -38,7 +41,16 @@ export const useAuthStore = defineStore('auth', () => {
       // Auto login after sign up if backend supports it, or just return success
       return await login(rfc, password)
     } catch (err: any) {
-      error.value = err.response?.data?.detail || 'Error al registrarse'
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        if (Array.isArray(detail)) {
+          error.value = detail.map((d: any) => d.msg).join(", ");
+        } else {
+          error.value = detail;
+        }
+      } else {
+        error.value = 'Error de red o CORS al intentar conectarse al servidor.';
+      }
       return false
     } finally {
       loading.value = false

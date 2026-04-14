@@ -81,6 +81,8 @@ const handleSignup = async () => {
                   v-model="(isLogin ? loginForm : signupForm).rfc"
                   type="text"
                   placeholder="XAXX010101000"
+                  maxlength="13"
+                  minlength="12"
                   class="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-slate-600 uppercase"
                   required
                 />

@@ -1,42 +1,84 @@
 """
-Modulo de Dependencias Centralizadas - Vanta Facturacion
-=========================================================
-Inyeccion de dependencias reutilizables para FastAPI.
+Dependencias Centralizadas — Vanta Facturacion
+===============================================
+`get_current_tenant` es la unica fuente de verdad para autorizacion.
 
-Seguridad:
-- El tenant_id se extrae EXCLUSIVAMENTE del JWT previamente validado
-  por el middleware (request.state), NUNCA de headers manipulables
-  por el cliente.
-- Previene IDOR (Insecure Direct Object Reference) al garantizar
-  que el contexto del tenant es inmutable por el usuario final.
+Diseño de seguridad:
+- Valida el JWT directamente desde el header `Authorization: Bearer <token>`.
+- NO depende del middleware para obtener el tenant — es completamente auto-suficiente.
+- Al usar `HTTPBearer`, FastAPI registra el esquema Bearer en el spec OpenAPI:
+  Swagger UI muestra el candado en cada ruta protegida y el boton "Authorize" global.
+- Previene IDOR: el `tenant_id` proviene del JWT firmado, nunca de headers del cliente.
 """
 
-from fastapi import Request, HTTPException, status
+import os
+
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+# Al declarar este scheme, FastAPI lo registra en el OpenAPI spec automaticamente.
+# Swagger UI mostrara el candado en todas las rutas que usen get_current_tenant.
+bearer_scheme = HTTPBearer(
+    scheme_name="JWT Bearer",
+    description="Token JWT obtenido en `/api/v1/auth/login` o `/api/v1/auth/signup`.",
+    auto_error=True,  # Devuelve 403 automaticamente si no se envia el header
+)
 
 
-async def get_current_tenant(request: Request) -> dict:
+async def get_current_tenant(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> dict:
     """
-    Dependency de FastAPI que extrae el contexto del tenant autenticado.
+    Dependency de FastAPI para autorizacion multitenant.
 
-    El middleware JWTAuthMiddleware ya decodifico el token y deposito
-    los claims en request.state. Esta funcion los centraliza y valida.
+    Decodifica y valida el JWT directamente desde el header Authorization.
+    No requiere middleware previo — cada ruta protegida es independiente.
 
     Returns:
-        dict con claves:
-            - tenant_id (str): ID unico del registro en tabla clientes.
+        dict con:
+            - tenant_id (str): ID unico del cliente en tabla `clientes`.
             - tenant_org (str): RFC del tenant (organizacion).
 
     Raises:
-        HTTP 401 si el middleware no pudo inyectar el contexto
-        (token ausente, expirado o corrupto).
+        HTTP 403 si no se envia el header Authorization (auto_error de HTTPBearer).
+        HTTP 401 si el token esta expirado, es invalido, o le faltan claims.
+        HTTP 500 si SECRET_KEY no esta configurada en el servidor.
     """
-    tenant_id = getattr(request.state, "tenant_id", None)
-    tenant_org = getattr(request.state, "tenant_org", None)
+    secret = os.getenv("SECRET_KEY")
+    algorithm = os.getenv("ALGORITHM", "HS256")
+
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Configuracion de servidor incompleta: SECRET_KEY ausente.",
+        )
+
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(token, secret, algorithms=[algorithm])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token JWT expirado. Inicia sesion nuevamente.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token JWT invalido o corrupto.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    tenant_id = payload.get("id")
+    tenant_org = payload.get("org")
 
     if not tenant_id or not tenant_org:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Contexto de autenticacion ausente. Token JWT invalido o no proporcionado."
+            detail="Token JWT con claims incompletos (id u org ausentes).",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     return {"tenant_id": tenant_id, "tenant_org": tenant_org}

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(./venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8002 --loop asyncio)",
+      "Bash(curl -s -X POST http://127.0.0.1:8002/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"Empresa Test\",\"rfc\":\"XAXX010101000\",\"password\":\"test123456\"}')",
+      "Bash(kill %1)",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"rfc\":\"XAXX010101000\",\"password\":\"test123456\"}')",
+      "Bash(curl -s http://127.0.0.1:8000/api/v1/apikeys/ -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM2ZGU1MTdmLTk0M2ItNGNhNC04Y2E5LTFkZGJkYjMzYTlmMyIsIm9yZyI6IlhBWFgwMTAxMDEwMDAiLCJleHAiOjE3NzYyMjA0NzF9.hvZyBYxRqapJAaN8ig-VDH5fdqyTXoJvEW6LkTKRC3g')",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/api/v1/apikeys/generate -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM2ZGU1MTdmLTk0M2ItNGNhNC04Y2E5LTFkZGJkYjMzYTlmMyIsIm9yZyI6IlhBWFgwMTAxMDEwMDAiLCJleHAiOjE3NzYyMjA0NzF9.hvZyBYxRqapJAaN8ig-VDH5fdqyTXoJvEW6LkTKRC3g' -H 'Content-Type: application/json' -d '{\"name\":\"Key de prueba\"}')",
+      "Bash(./venv/Scripts/python.exe *)",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/api/v1/facturacion/preview -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM2ZGU1MTdmLTk0M2ItNGNhNC04Y2E5LTFkZGJkYjMzYTlmMyIsIm9yZyI6IlhBWFgwMTAxMDEwMDAiLCJleHAiOjE3NzYyMjEzMDB9.CbH2gDiBQUaR9qeVuLNoao-wqMGRCKOLj8MZHVAcH_8' -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s 'http://127.0.0.1:8000/api/v1/facturacion/?page=1&page_size=20' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM2ZGU1MTdmLTk0M2ItNGNhNC04Y2E5LTFkZGJkYjMzYTlmMyIsIm9yZyI6IlhBWFgwMTAxMDEwMDAiLCJleHAiOjE3NzYyMjEzMDB9.CbH2gDiBQUaR9qeVuLNoao-wqMGRCKOLj8MZHVAcH_8')",
+      "Bash(curl -s http://127.0.0.1:8000/api/v1/catalogos/formas-pago -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM2ZGU1MTdmLTk0M2ItNGNhNC04Y2E5LTFkZGJkYjMzYTlmMyIsIm9yZyI6IlhBWFgwMTAxMDEwMDAiLCJleHAiOjE3NzYyMjEzMDB9.CbH2gDiBQUaR9qeVuLNoao-wqMGRCKOLj8MZHVAcH_8')",
+      "Bash(curl -s http://127.0.0.1:8000/api/v1/facturacion/)",
+      "Bash(curl -s 'http://127.0.0.1:8000/api/v1/facturacion/?page=1&page_size=10' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM2ZGU1MTdmLTk0M2ItNGNhNC04Y2E5LTFkZGJkYjMzYTlmMyIsIm9yZyI6IlhBWFgwMTAxMDEwMDAiLCJleHAiOjE3NzYyMjEzMDB9.CbH2gDiBQUaR9qeVuLNoao-wqMGRCKOLj8MZHVAcH_8')",
+      "Bash(curl -s 'http://127.0.0.1:8000/api/v1/catalogos/prodserv?keyword=software' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM2ZGU1MTdmLTk0M2ItNGNhNC04Y2E5LTFkZGJkYjMzYTlmMyIsIm9yZyI6IlhBWFgwMTAxMDEwMDAiLCJleHAiOjE3NzYyMjEzMDB9.CbH2gDiBQUaR9qeVuLNoao-wqMGRCKOLj8MZHVAcH_8')",
+      "Bash(pkill -f \"run.py\")",
+      "Bash(pkill -f \"uvicorn\")",
+      "Bash(find app *)",
+      "Bash(taskkill //F //IM python.exe)"
+    ]
+  }
+}

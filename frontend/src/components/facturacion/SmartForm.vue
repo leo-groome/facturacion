@@ -9,6 +9,12 @@ const searchResults = ref<any[]>([])
 const isSearching = ref(false)
 
 const draftTotal = ref<number | null>(null)
+const previewError = ref<string | null>(null)
+
+// Campos requeridos del receptor
+const receptorRazonSocial = ref('')
+const receptorRegimen = ref('')
+const receptorDomicilioFiscal = ref('')
 
 // Predictivo con debounce
 let debounceTimer: ReturnType<typeof setTimeout>
@@ -18,14 +24,14 @@ watch(searchKeyword, (newVal) => {
     searchResults.value = []
     return
   }
-  
+
   debounceTimer = setTimeout(async () => {
     isSearching.value = true
     try {
       const response = await api.get(`/catalogos/prodserv?keyword=${newVal}`)
       searchResults.value = response.data.resultados
     } catch (e) {
-      console.error(e)
+      console.error('Error buscando catálogo SAT:', e)
     } finally {
       isSearching.value = false
     }
@@ -48,19 +54,42 @@ const selectCatalog = (val: any) => {
 }
 
 const previewFactura = async () => {
+  previewError.value = null
+  draftTotal.value = null
+
+  if (!store.receptorRfc.trim()) {
+    previewError.value = 'El RFC del receptor es obligatorio.'
+    return
+  }
+  if (!receptorRazonSocial.value.trim()) {
+    previewError.value = 'La razón social del receptor es obligatoria.'
+    return
+  }
+  if (!receptorRegimen.value.trim()) {
+    previewError.value = 'El régimen fiscal del receptor es obligatorio.'
+    return
+  }
+  if (!receptorDomicilioFiscal.value.trim()) {
+    previewError.value = 'El código postal del domicilio fiscal es obligatorio.'
+    return
+  }
+  if (store.conceptos.length === 0) {
+    previewError.value = 'Debes agregar al menos un concepto.'
+    return
+  }
+
   try {
     const draftPayload = {
-      receptor_rfc: store.receptorRfc || 'XAXX010101000',
-      receptor_razon_social: 'Regimen Simulado',
-      receptor_regimen: '616',
-      receptor_domicilio_fiscal: '00000',
+      receptor_rfc: store.receptorRfc.toUpperCase().trim(),
+      receptor_razon_social: receptorRazonSocial.value.trim(),
+      receptor_regimen: receptorRegimen.value.trim(),
+      receptor_domicilio_fiscal: receptorDomicilioFiscal.value.trim(),
       conceptos: store.conceptos
     }
     const { data } = await api.post('/facturacion/preview', draftPayload)
     draftTotal.value = data.total
-    alert(`Borrador generado con éxito! \nValidado Localmente sin timbrar.\nTotal M.N: $${data.total}`)
   } catch (error: any) {
-    alert("Error al simular: " + (error.response?.data?.detail || error.message))
+    previewError.value = 'Error al simular: ' + (error.response?.data?.detail || error.message)
   }
 }
 </script>
@@ -71,8 +100,20 @@ const previewFactura = async () => {
     
     <div class="mb-6 grid grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-2">RFC Receptor</label>
-        <input v-model="store.receptorRfc" type="text" class="p-3 w-full border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-slate-50" placeholder="XAXX010101000" />
+        <label class="block text-sm font-semibold text-slate-700 mb-2">RFC Receptor <span class="text-red-500">*</span></label>
+        <input v-model="store.receptorRfc" type="text" class="p-3 w-full border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-slate-50 uppercase" placeholder="XAXX010101000" maxlength="13" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">Razón Social <span class="text-red-500">*</span></label>
+        <input v-model="receptorRazonSocial" type="text" class="p-3 w-full border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-slate-50" placeholder="Nombre o empresa del receptor" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">Régimen Fiscal SAT <span class="text-red-500">*</span></label>
+        <input v-model="receptorRegimen" type="text" class="p-3 w-full border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-slate-50" placeholder="Ej. 616, 601, 612" maxlength="3" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">C.P. Domicilio Fiscal <span class="text-red-500">*</span></label>
+        <input v-model="receptorDomicilioFiscal" type="text" class="p-3 w-full border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-slate-50" placeholder="Ej. 06600" maxlength="5" />
       </div>
     </div>
     
@@ -113,6 +154,13 @@ const previewFactura = async () => {
       </div>
     </div>
     
+    <div v-if="previewError" class="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm font-medium px-4 py-3 rounded-lg">
+      {{ previewError }}
+    </div>
+    <div v-if="draftTotal !== null" class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-bold px-4 py-3 rounded-lg">
+      Borrador validado sin timbrar. Total M.N: ${{ draftTotal.toFixed(2) }}
+    </div>
+
     <button @click="previewFactura" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2 disabled:opacity-50" :disabled="!store.conceptos.length">
       Generar Vista Previa (Simulador)
     </button>

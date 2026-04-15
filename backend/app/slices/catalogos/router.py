@@ -1,51 +1,185 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
-from typing import Dict
-from .schema import CatalogoSearchResponse, CatalogoItemResponse
-import httpx
 import base64
+import logging
 import os
+from datetime import datetime, timedelta
+from typing import Dict, Tuple
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
+
 from app.core.dependencies import get_current_tenant
+from .schema import CatalogoItemResponse, CatalogoSearchResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/catalogos", tags=["Catalogos SAT"])
 
-CATALOGO_CACHE: Dict[str, CatalogoSearchResponse] = {}
+# Cache con TTL de 30 minutos para evitar rate limiting de Facturama
+CACHE_TTL = timedelta(minutes=30)
+_CACHE: Dict[str, Tuple[datetime, CatalogoSearchResponse]] = {}
+
+
+def _get_facturama_headers() -> dict:
+    user = os.getenv("FACTURAMA_USER", "")
+    password = os.getenv("FACTURAMA_PASSWORD", "")
+    encoded = base64.b64encode(f"{user}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {encoded}"}
+
+
+def _cache_get(key: str):
+    if key in _CACHE:
+        ts, data = _CACHE[key]
+        if datetime.now() - ts < CACHE_TTL:
+            return data
+        del _CACHE[key]
+    return None
+
+
+def _cache_set(key: str, data: CatalogoSearchResponse):
+    _CACHE[key] = (datetime.now(), data)
+
+
+async def _fetch_catalog(facturama_path: str, cache_key: str) -> CatalogoSearchResponse:
+    """
+    Proxy generico hacia la API de catalogos de Facturama con cache TTL.
+    Retorna lista de {Value, Name}.
+    """
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
+
+    base_url = os.getenv("FACTURAMA_API_URL", "https://apisandbox.facturama.mx")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            f"{base_url}{facturama_path}",
+            headers=_get_facturama_headers(),
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Error Facturama Catalogo [{response.status_code}]: {response.text}",
+            )
+        data = response.json()
+
+    resultados = [
+        CatalogoItemResponse(Value=item.get("Value"), Name=item.get("Name"))
+        for item in data
+    ]
+    result = CatalogoSearchResponse(resultados=resultados)
+    _cache_set(cache_key, result)
+    return result
+
+
+async def _fetch_catalog_search(
+    facturama_path: str, keyword: str, cache_key: str
+) -> CatalogoSearchResponse:
+    """Proxy con parametro de busqueda (keyword) y cache TTL."""
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
+
+    base_url = os.getenv("FACTURAMA_API_URL", "https://apisandbox.facturama.mx")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            f"{base_url}{facturama_path}",
+            params={"keyword": keyword},
+            headers=_get_facturama_headers(),
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Error Facturama [{response.status_code}]: {response.text}",
+            )
+        data = response.json()
+
+    resultados = [
+        CatalogoItemResponse(Value=item.get("Value"), Name=item.get("Name"))
+        for item in data
+    ]
+    result = CatalogoSearchResponse(resultados=resultados)
+    _cache_set(cache_key, result)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Productos y Servicios (busqueda por keyword)
+# ---------------------------------------------------------------------------
 
 @router.get("/prodserv", response_model=CatalogoSearchResponse)
 async def buscar_prod_serv(
-    keyword: str = Query(..., min_length=3, description="Palabra clave a buscar"),
-    tenant: dict = Depends(get_current_tenant)
+    keyword: str = Query(..., min_length=3, description="Palabra clave SAT c_ClaveProdServ"),
+    tenant: dict = Depends(get_current_tenant),
 ):
-    """
-    Proxy asincrono hacia integrador real para Claves ProdServ.
-    No se permite simulacion, impacta API externa en produccion.
-    Se requiere autenticacion JWT valida (tenant extraido del token).
-    """
-    cache_key = f"prodserv_{keyword.lower()}"
-    if cache_key in CATALOGO_CACHE:
-        return CATALOGO_CACHE[cache_key]
+    """Busca claves de Productos y Servicios SAT (c_ClaveProdServ)."""
+    return await _fetch_catalog_search(
+        "/catalogs/ProductsOrServices",
+        keyword,
+        f"prodserv_{keyword.lower()}",
+    )
 
-    base_url = os.getenv("FACTURAMA_API_URL", "https://apisandbox.facturama.mx")
-    user = os.getenv("FACTURAMA_USER", "")
-    password = os.getenv("FACTURAMA_PASSWORD", "")
-    
-    credentials = f"{user}:{password}"
-    encoded = base64.b64encode(credentials.encode()).decode()
-    
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(
-            f"{base_url}/catalogs/ProductsOrServices",
-            params={"keyword": keyword},
-            headers={"Authorization": f"Basic {encoded}"}
-        )
-        if response.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Error Facturama API: {response.text}")
-            
-        data = response.json()
-        
-    resultados = []
-    for item in data:
-        resultados.append(CatalogoItemResponse(Value=item.get("Value"), Name=item.get("Name")))
-        
-    final_response = CatalogoSearchResponse(resultados=resultados)
-    CATALOGO_CACHE[cache_key] = final_response
-    return final_response
+
+# ---------------------------------------------------------------------------
+# Unidades de Medida
+# ---------------------------------------------------------------------------
+
+@router.get("/unidades", response_model=CatalogoSearchResponse)
+async def buscar_unidades(
+    keyword: str = Query(..., min_length=2, description="Palabra clave c_ClaveUnidad"),
+    tenant: dict = Depends(get_current_tenant),
+):
+    """Busca unidades de medida SAT (c_ClaveUnidad). Ej: H87=Pieza, E48=Servicio."""
+    return await _fetch_catalog_search(
+        "/catalogs/Units",
+        keyword,
+        f"unidades_{keyword.lower()}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Formas de Pago
+# ---------------------------------------------------------------------------
+
+@router.get("/formas-pago", response_model=CatalogoSearchResponse)
+async def listar_formas_pago(
+    tenant: dict = Depends(get_current_tenant),
+):
+    """Lista todas las formas de pago SAT (c_FormaPago). Ej: 01=Efectivo, 03=Transferencia."""
+    return await _fetch_catalog("/catalogs/PaymentForms", "formas_pago")
+
+
+# ---------------------------------------------------------------------------
+# Metodos de Pago
+# ---------------------------------------------------------------------------
+
+@router.get("/metodos-pago", response_model=CatalogoSearchResponse)
+async def listar_metodos_pago(
+    tenant: dict = Depends(get_current_tenant),
+):
+    """Lista metodos de pago SAT (c_MetodoPago). PUE=Pago unico | PPD=Pago en parcialidades."""
+    return await _fetch_catalog("/catalogs/PaymentMethods", "metodos_pago")
+
+
+# ---------------------------------------------------------------------------
+# Usos CFDI
+# ---------------------------------------------------------------------------
+
+@router.get("/usos-cfdi", response_model=CatalogoSearchResponse)
+async def listar_usos_cfdi(
+    tenant: dict = Depends(get_current_tenant),
+):
+    """Lista los usos CFDI del receptor (c_UsoCFDI). Ej: G01=Mercancias, G03=Gastos generales."""
+    return await _fetch_catalog("/catalogs/CfdiUses", "usos_cfdi")
+
+
+# ---------------------------------------------------------------------------
+# Regimenes Fiscales
+# ---------------------------------------------------------------------------
+
+@router.get("/regimenes", response_model=CatalogoSearchResponse)
+async def listar_regimenes(
+    tenant: dict = Depends(get_current_tenant),
+):
+    """Lista regimenes fiscales SAT (c_RegimenFiscal). Ej: 601=General de Ley Personas Morales."""
+    return await _fetch_catalog("/catalogs/FiscalRegimes", "regimenes")

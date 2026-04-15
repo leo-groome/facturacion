@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { RouterView, RouterLink, useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 
 const navLinks = [
   { name: 'Onboarding', path: '/onboarding', label: 'Configuración Fiscal' },
@@ -8,6 +13,14 @@ const navLinks = [
   { name: 'Explorador', path: '/explorador', label: 'Mis Facturas' },
   { name: 'API Keys', path: '/apikeys', label: 'Desarrolladores' }
 ]
+
+const tenantRfc = computed(() => authStore.user?.org ?? '')
+const avatarLetters = computed(() => tenantRfc.value.slice(0, 2).toUpperCase() || '?')
+
+function handleLogout() {
+  authStore.logout()
+  router.push({ name: 'login' })
+}
 </script>
 
 <template>
@@ -22,8 +35,8 @@ const navLinks = [
       </div>
 
       <nav class="flex-1 px-4 space-y-1 mt-4">
-        <RouterLink 
-          v-for="link in navLinks" 
+        <RouterLink
+          v-for="link in navLinks"
           :key="link.path"
           :to="link.path"
           class="flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 group"
@@ -33,16 +46,22 @@ const navLinks = [
         </RouterLink>
       </nav>
 
-      <div class="p-4 border-t border-slate-800">
+      <div class="p-4 border-t border-slate-800 space-y-2">
         <div class="flex items-center gap-3 px-4 py-3 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-          <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-xs">
-            JD
+          <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-xs shrink-0">
+            {{ avatarLetters }}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-xs font-bold text-white truncate">John Doe</p>
-            <p class="text-[10px] text-slate-500 truncate">Empresa de Prueba</p>
+            <p class="text-xs font-bold text-white truncate">{{ tenantRfc || 'Sin sesión' }}</p>
+            <p class="text-[10px] text-slate-500 truncate">Tenant activo</p>
           </div>
         </div>
+        <button
+          @click="handleLogout"
+          class="w-full text-xs font-semibold text-slate-500 hover:text-red-400 transition-colors py-1"
+        >
+          Cerrar sesión
+        </button>
       </div>
     </aside>
 

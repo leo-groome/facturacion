@@ -1,4 +1,5 @@
 import axios from 'axios'
+import router from '@/router'
 
 // Configuración base de Axios apuntando al backend FastAPI
 const api = axios.create({
@@ -8,25 +9,14 @@ const api = axios.create({
   }
 })
 
-// Interceptor global para inyectar JWT, garantizando el aislamiento Multitenant
+// Interceptor global para inyectar JWT en cada request
+// El aislamiento multi-tenant lo deriva el backend exclusivamente del JWT
 api.interceptors.request.use(
   (config) => {
-    // Extrae el JWT de localStorage para la sesión actual
     const token = localStorage.getItem('token')
-
     if (token) {
-      if (!config.headers) {
-        config.headers = {} as any
-      }
       config.headers['Authorization'] = `Bearer ${token}`
     }
-
-    if (!config.headers) {
-      config.headers = {} as any
-    }
-    // Fallback provisional o de localStorage para el multi-tenant (evita el 422 de Header required)
-    config.headers['x-organization-id'] = localStorage.getItem('organization_id') || 'tenant_default_123'
-
     return config
   },
   (error) => {
@@ -39,11 +29,13 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    // Si el token expira o es inválido, podríamos limpiar y redirigir
     if (error.response && error.response.status === 401) {
-      console.warn("Unauthorized API call. JWT valid?")
-      // localStorage.removeItem('token')
-      // window.location.href = '/login'
+      // Evitar loop si el 401 viene del propio endpoint de login
+      const isAuthEndpoint = (error.config?.url as string | undefined)?.includes('/auth/')
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token')
+        router.push({ name: 'login' })
+      }
     }
     return Promise.reject(error)
   }

@@ -1,25 +1,28 @@
 """
-Middleware JWT de Autenticacion - Vanta Facturacion
-====================================================
-Middleware ASGI puro (sin BaseHTTPMiddleware) para evitar el bug conocido
-de Starlette donde BaseHTTPMiddleware bloquea requests POST con body
-en combinacion con --reload en Windows.
+Middleware de Rechazo Temprano — Vanta Facturacion
+===================================================
+Actua como PRIMERA linea de defensa: descarta requests sin header Authorization
+ANTES de que FastAPI deserialice el body JSON o ejecute la logica de negocio.
 
-Seguridad:
-- Extrae y valida el JWT de cada request protegido.
-- Inyecta tenant_id y tenant_org en request.state para uso seguro downstream.
-- Rechaza requests sin token valido con HTTP 401.
-- NO usa headers spoofables para determinar el tenant.
+Responsabilidades:
+- Verificar PRESENCIA del header `Authorization: Bearer ...` en rutas protegidas.
+- Rechazar con 401 inmediatamente si el header falta (sin tocar el body).
+- Permitir pre-flights CORS (OPTIONS) y rutas publicas sin token.
+
+Lo que NO hace este middleware:
+- NO decodifica ni valida el JWT (eso es responsabilidad de `get_current_tenant`).
+- NO inyecta claims en `request.state` (ya no es necesario).
+
+La validacion completa del JWT ocurre en `app/core/dependencies.get_current_tenant`,
+que usa `HTTPBearer` de FastAPI y registra el esquema en el spec OpenAPI.
 """
 
-import os
-import jwt
-from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-
-# Rutas que no requieren autenticacion JWT
+# Rutas que no requieren header Authorization.
+# /docs, /openapi.json, /redoc se controlan desde main.py via APP_ENV=production.
 PUBLIC_ENDPOINTS = frozenset([
     "/",
     "/api/v1/auth/login",
@@ -32,8 +35,8 @@ PUBLIC_ENDPOINTS = frozenset([
 
 class JWTAuthMiddleware:
     """
-    Middleware ASGI puro para autenticacion JWT.
-    Compatible con todos los tipos de request (GET, POST con body, streaming)
+    Middleware ASGI puro para rechazo temprano de requests sin Authorization header.
+    Compatible con todos los tipos de request (POST con body, streaming, etc.)
     sin el bug de body-consumption de BaseHTTPMiddleware.
     """
 
@@ -41,62 +44,29 @@ class JWTAuthMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        # Solo interceptar requests HTTP (no websockets, lifespan, etc.)
+        # Solo interceptar requests HTTP
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
         request = Request(scope)
-        # Normalizar path para comparacion
-        path = request.url.path.rstrip("/") if request.url.path != "/" else "/"
+        path = request.url.path.rstrip("/") or "/"
 
-        # Permitir pre-flights CORS y rutas publicas sin autenticacion
+        # Permitir pre-flights CORS y rutas publicas
         if path in PUBLIC_ENDPOINTS or request.method == "OPTIONS":
             await self.app(scope, receive, send)
             return
 
-        # Extraer y validar header Authorization
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
+        # Rechazo temprano: si no hay header Authorization, cortar antes del handler
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
             response = JSONResponse(
                 status_code=401,
-                content={"detail": "Mecanismo de autorizacion ausente o con formato erroneo"}
+                content={"detail": "Autorizacion requerida. Formato: Authorization: Bearer <token>"},
             )
             await response(scope, receive, send)
             return
 
-        token = auth_header.split(" ", 1)[1]
-        secret = os.getenv("SECRET_KEY")
-        algorithm = os.getenv("ALGORITHM", "HS256")
-
-        if not secret:
-            response = JSONResponse(
-                status_code=500,
-                content={"detail": "Falla critica del backend: SECRET_KEY no configurada"}
-            )
-            await response(scope, receive, send)
-            return
-
-        try:
-            payload = jwt.decode(token, secret, algorithms=[algorithm])
-            # Inyeccion de contexto multitenant en request.state
-            # Estos valores provienen del JWT firmado, NO de headers manipulables
-            scope.setdefault("state", {})
-            scope["state"]["tenant_id"] = payload.get("id")
-            scope["state"]["tenant_org"] = payload.get("org")
-        except jwt.ExpiredSignatureError:
-            response = JSONResponse(
-                status_code=401,
-                content={"detail": "Firma JWT expirada"}
-            )
-            await response(scope, receive, send)
-            return
-        except jwt.PyJWTError:
-            response = JSONResponse(
-                status_code=401,
-                content={"detail": "Firma JWT corrupta o invalida"}
-            )
-            await response(scope, receive, send)
-            return
-
+        # Header presente — dejar pasar a FastAPI.
+        # La validacion del JWT ocurre en get_current_tenant (Depends/Security).
         await self.app(scope, receive, send)

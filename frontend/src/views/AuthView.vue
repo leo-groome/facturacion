@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -7,31 +7,55 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const isLogin = ref(true)
-const loginForm = reactive({
-  rfc: '',
-  password: ''
+const loginForm = reactive({ rfc: '', password: '' })
+const signupForm = reactive({ nombre_empresa: '', rfc: '', password: '' })
+const rfcError = ref<string | null>(null)
+
+// RFC mexicano: 3-4 letras + 6 dígitos (fecha) + 3 alfanuméricos (homoclave)
+const RFC_REGEX = /^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/
+
+function validateRFC(value: string): string | null {
+  const upper = value.toUpperCase().trim()
+  if (!upper) return null
+  if (!RFC_REGEX.test(upper)) return 'Formato de RFC inválido. Ej: XAXX010101000'
+  return null
+}
+
+const currentRfc = computed(() => (isLogin.value ? loginForm.rfc : signupForm.rfc))
+const rfcIsValid = computed(() => {
+  const upper = currentRfc.value.toUpperCase().trim()
+  return upper.length >= 12 && RFC_REGEX.test(upper)
 })
 
-const signupForm = reactive({
-  nombre_empresa: '',
-  rfc: '',
-  password: ''
-})
+function onRfcInput(e: Event) {
+  const val = (e.target as HTMLInputElement).value.toUpperCase()
+  if (isLogin.value) {
+    loginForm.rfc = val
+  } else {
+    signupForm.rfc = val
+  }
+  rfcError.value = validateRFC(val)
+}
 
 const toggleMode = () => {
   isLogin.value = !isLogin.value
   authStore.error = null
+  rfcError.value = null
 }
 
 const handleLogin = async () => {
-  const success = await authStore.login(loginForm.rfc, loginForm.password)
+  rfcError.value = validateRFC(loginForm.rfc)
+  if (rfcError.value) return
+  const success = await authStore.login(loginForm.rfc.toUpperCase().trim(), loginForm.password)
   if (success) {
     router.push({ name: 'onboarding' })
   }
 }
 
 const handleSignup = async () => {
-  const success = await authStore.signUp(signupForm.nombre_empresa, signupForm.rfc, signupForm.password)
+  rfcError.value = validateRFC(signupForm.rfc)
+  if (rfcError.value) return
+  const success = await authStore.signUp(signupForm.nombre_empresa, signupForm.rfc.toUpperCase().trim(), signupForm.password)
   if (success) {
     router.push({ name: 'onboarding' })
   }
@@ -77,15 +101,18 @@ const handleSignup = async () => {
 
               <div class="space-y-1">
                 <label class="text-xs font-bold text-slate-400 uppercase ml-1">RFC</label>
-                <input 
-                  v-model="(isLogin ? loginForm : signupForm).rfc"
+                <input
+                  :value="isLogin ? loginForm.rfc : signupForm.rfc"
+                  @input="onRfcInput"
                   type="text"
                   placeholder="XAXX010101000"
                   maxlength="13"
                   minlength="12"
-                  class="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-slate-600 uppercase"
+                  class="w-full bg-slate-800 border text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition-all placeholder:text-slate-600 uppercase"
+                  :class="rfcError ? 'border-red-500/60 focus:ring-red-500/40' : 'border-slate-700 focus:ring-blue-500/50'"
                   required
                 />
+                <p v-if="rfcError" class="text-xs text-red-400 ml-1 mt-1">{{ rfcError }}</p>
               </div>
 
               <div class="space-y-1">
@@ -103,9 +130,9 @@ const handleSignup = async () => {
                 {{ authStore.error }}
               </div>
 
-              <button 
+              <button
                 type="submit"
-                :disabled="authStore.loading"
+                :disabled="authStore.loading || !rfcIsValid"
                 class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <span v-if="authStore.loading" class="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>

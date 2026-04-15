@@ -2,6 +2,7 @@ from fastapi import Header, HTTPException, status, Request
 import bcrypt
 import time
 from typing import Dict, Tuple
+from psycopg.rows import dict_row
 
 def hash_api_key(api_key: str) -> str:
     """Aplica Hasheo iterativo Bcrypt irreversible para el resguardo de las contraseñas/apikeys."""
@@ -38,20 +39,30 @@ async def rate_limiter_dependency(request: Request, x_api_key: str = Header(None
         RATE_LIMIT_STORE[identifier] = (1, current_time)
 
 async def validate_api_key_tenant(
+    request: Request,
     x_api_key: str = Header(..., description="API Key externa proporcionada por integrador B2B"),
 ) -> str:
     """
-    Autenticador para peticiones REST ajenas al Frontend. Valida cruzando bcrypt
-    hacia PostgreSQL retornando organizacion id o expulsado 401.
+    Autenticador para peticiones REST B2B.
+    Valida la API Key contra el hash bcrypt en PostgreSQL y retorna el organization_id.
     """
-    # [!] Llamar y comparar bcrypt en PostgreSQL (Real implementation logic)
-    # result = await db.execute(select(ApiKey).where(ApiKey.active == True))
-    # for row in result:
-    #     if verify_api_key(x_api_key, row.hashed_api_key):
-    #         return row.organization_id
-            
-    # Lanzar error real, absteniéndonos estrictamente de crear un array de mentira = "Simulacion"
+    db_pool = request.app.state.db_pool
+
+    # Buscar candidatos por prefijo (evita comparar bcrypt contra toda la tabla)
+    prefix = x_api_key[:15]
+    async with db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT organization_id, hashed_key FROM api_keys WHERE prefix = %s AND activa = TRUE",
+                (prefix,)
+            )
+            candidates = await cur.fetchall()
+
+    for row in candidates:
+        if verify_api_key(x_api_key, row["hashed_key"]):
+            return str(row["organization_id"])
+
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED, 
-        detail="Módulo de validación asimétrica DB no enganchado a infraestructura Core aún."
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="API Key inválida o revocada."
     )

@@ -29,17 +29,24 @@ app = FastAPI(
     title="VantaFacturacion API",
     description="Backend SaaS Multi-tenant (B2B/B2C) - Vertical Slice Architecture.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if os.getenv("APP_ENV") != "production" else None,
+    openapi_url="/openapi.json" if os.getenv("APP_ENV") != "production" else None,
+    redoc_url="/redoc" if os.getenv("APP_ENV") != "production" else None,
 )
 
 from app.slices.auth.middleware import JWTAuthMiddleware
 app.add_middleware(JWTAuthMiddleware)
 
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_allowed_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+    allow_credentials=True,
 )
 
 # Health Check

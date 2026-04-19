@@ -1,11 +1,13 @@
 import logging
 from fastapi import APIRouter, HTTPException, Request, status
+from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from app.slices.auth import schemas, security
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
 
 @router.post("/signup", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 async def signup(user: schemas.UserSignup, request: Request):
@@ -27,11 +29,16 @@ async def signup(user: schemas.UserSignup, request: Request):
                 )
                 new_user = await cur.fetchone()
                 await conn.commit()
+    except UniqueViolation:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El RFC proporcionado ya esta registrado.",
+        )
     except Exception:
         logger.exception("Error en registro de usuario")
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Condicion de conflicto: El RFC registrado ya existe o hubo un error estructural."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Error de conexion a la base de datos. Verifica que el servidor se inicio con 'python run.py'.",
         )
 
     access_token = security.create_access_token(
@@ -47,10 +54,17 @@ async def login(credentials: schemas.UserLogin, request: Request):
 
     query = "SELECT id, rfc, contrasena FROM clientes WHERE rfc = %s"
 
-    async with db_pool.connection() as conn:
-        async with conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(query, (rfc_target,))
-            db_user = await cur.fetchone()
+    try:
+        async with db_pool.connection() as conn:
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(query, (rfc_target,))
+                db_user = await cur.fetchone()
+    except Exception:
+        logger.exception("Error de base de datos en login")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Error de conexion a la base de datos. Verifica que el servidor se inicio con 'python run.py'.",
+        )
 
     # Evaluacion segura de hash contra ataques de timing
     if not db_user or not security.verify_password(credentials.password, db_user["contrasena"]):

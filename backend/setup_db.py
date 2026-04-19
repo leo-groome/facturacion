@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS facturas (
     receptor_razon_social VARCHAR(255) NOT NULL,
     receptor_regimen VARCHAR(10),
     receptor_domicilio_fiscal VARCHAR(5),
+    receptor_email VARCHAR(255),
     subtotal DECIMAL(15,2) NOT NULL,
     total_impuestos_trasladados DECIMAL(15,2) DEFAULT 0,
     total_impuestos_retenidos DECIMAL(15,2) DEFAULT 0,

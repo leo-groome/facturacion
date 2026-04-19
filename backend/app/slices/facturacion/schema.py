@@ -26,6 +26,7 @@ class EmisionDraftRequest(BaseModel):
     receptor_razon_social: str
     receptor_regimen: str = Field(..., description="Codigo c_RegimenFiscal del receptor")
     receptor_domicilio_fiscal: str = Field(..., description="Codigo postal del domicilio fiscal del receptor")
+    receptor_email: Optional[str] = Field(None, description="Correo electronico del receptor para envio del CFDI")
     uso_cfdi: str = Field("G03", description="Codigo c_UsoCFDI (G03=Gastos en general)")
     conceptos: List[Concepto]
     moneda: str = "MXN"
@@ -64,6 +65,7 @@ class FacturaListResponse(BaseModel):
     fecha_emision: Optional[str]
     receptor_rfc: str
     receptor_razon_social: str
+    receptor_email: Optional[str]
     total: Decimal
     estado: str
 

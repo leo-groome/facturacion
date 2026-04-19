@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://127.0.0.1:8000/)",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"FreshCo\",\"rfc\":\"FRSH010101AA2\",\"password\":\"pass123\"}')",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"rfc\":\"FRSH010101AA2\",\"password\":\"pass123\"}')",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 6956)",
+      "Bash(taskkill //F //PID 20756)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(venv/Scripts/python.exe run.py)",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"TestDebug\",\"rfc\":\"DBUG010101AA3\",\"password\":\"debug123\"}')",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"rfc\":\"DBUG010101AA3\",\"password\":\"debug123\"}')",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X OPTIONS http://127.0.0.1:8000/api/v1/auth/login -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: Content-Type' -D -)",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:5173' -d '{\"rfc\":\"DBUG010101AA3\",\"password\":\"debug123\"}')",
+      "Bash(venv/Scripts/python.exe -c ' *)",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"FinalTest\",\"rfc\":\"FNLT010101AA4\",\"password\":\"final123\"}')",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"rfc\":\"FNLT010101AA4\",\"password\":\"final123\"}')",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"Dupe\",\"rfc\":\"FNLT010101AA4\",\"password\":\"other\"}')"
+    ]
+  }
+}

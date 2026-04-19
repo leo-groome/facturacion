@@ -9,6 +9,8 @@ export interface Impuesto {
 
 export interface Concepto {
   clave_prod_serv: string
+  clave_unidad: string
+  descripcion: string
   cantidad: number
   valor_unitario: number
   importe: number

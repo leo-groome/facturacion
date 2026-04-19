@@ -83,7 +83,7 @@ onMounted(() => {
           </tr>
           <tr v-for="cfdi in facturas" :key="cfdi.id" class="hover:bg-slate-50 transition-colors">
             <td class="px-6 py-4">
-              <span :class="cfdi.estado === 'Timbrado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'" class="px-2 py-1 rounded font-bold text-xs">
+              <span :class="cfdi.estado === 'Vigente' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'" class="px-2 py-1 rounded font-bold text-xs">
                 {{ cfdi.estado }}
               </span>
             </td>
@@ -99,7 +99,7 @@ onMounted(() => {
                 <button @click="triggerDownload(cfdi.id, 'pdf')" class="px-3 py-1 bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 rounded font-medium text-xs transition-colors">PDF</button>
                 <button @click="triggerDownload(cfdi.id, 'xml')" class="px-3 py-1 bg-white border border-slate-200 text-slate-600 hover:text-orange-600 hover:border-orange-300 rounded font-medium text-xs transition-colors">XML</button>
                 <button @click="triggerDownload(cfdi.id, 'zip')" class="px-3 py-1 bg-white border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-300 rounded font-medium text-xs transition-colors">ZIP</button>
-                <button v-if="cfdi.estado === 'Timbrado'" @click="openCancelFlow(cfdi)" class="px-3 py-1 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded font-bold text-xs transition-colors ml-2">Cancelar</button>
+                <button v-if="cfdi.estado === 'Vigente'" @click="openCancelFlow(cfdi)" class="px-3 py-1 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded font-bold text-xs transition-colors ml-2">Cancelar</button>
               </div>
             </td>
           </tr>

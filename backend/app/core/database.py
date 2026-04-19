@@ -48,6 +48,7 @@ async def create_db_pool() -> AsyncConnectionPool:
         min_size=1,
         max_size=10,
         timeout=30.0,
+        open=False,
     )
     await pool.open()
     # Verificacion de salud: falla rapido si Neon no responde

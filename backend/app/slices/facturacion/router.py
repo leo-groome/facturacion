@@ -184,16 +184,16 @@ async def emitir_factura(
                     INSERT INTO facturas (
                         organization_id, folio_fiscal, facturama_id, fecha_emision,
                         receptor_rfc, receptor_razon_social, receptor_regimen,
-                        receptor_domicilio_fiscal, subtotal, total_impuestos_trasladados,
-                        total_impuestos_retenidos, total, xml_content
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        receptor_domicilio_fiscal, receptor_email, subtotal,
+                        total_impuestos_trasladados, total_impuestos_retenidos, total, xml_content
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id;
                     """,
                     (
                         org_id, folio_fiscal, facturama_id, fecha_emision,
                         draft.receptor_rfc, draft.receptor_razon_social, draft.receptor_regimen,
-                        draft.receptor_domicilio_fiscal, subtotal, traslados,
-                        retenciones, total, xml_content,
+                        draft.receptor_domicilio_fiscal, draft.receptor_email, subtotal,
+                        traslados, retenciones, total, xml_content,
                     ),
                 )
                 row = await cur.fetchone()
@@ -269,7 +269,7 @@ async def list_facturas(
             await cur.execute(
                 f"""
                 SELECT id, folio_fiscal, fecha_emision, receptor_rfc,
-                       receptor_razon_social, total, estado
+                       receptor_razon_social, receptor_email, total, estado
                 FROM facturas
                 WHERE organization_id = %s{estado_filter}
                 ORDER BY created_at DESC
@@ -286,6 +286,7 @@ async def list_facturas(
             "fecha_emision": r["fecha_emision"].isoformat() if r["fecha_emision"] else None,
             "receptor_rfc": r["receptor_rfc"],
             "receptor_razon_social": r["receptor_razon_social"],
+            "receptor_email": r["receptor_email"],
             "total": r["total"],
             "estado": r["estado"],
         }

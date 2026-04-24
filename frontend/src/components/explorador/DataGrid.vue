@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import api from '@/services/api'
 import CancellationModal from './CancellationModal.vue'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const facturas = ref<any[]>([])
 const isLoading = ref(true)
@@ -43,7 +46,7 @@ const triggerDownload = async (facturaId: string, format: string) => {
     document.body.removeChild(link)
     
   } catch (error) {
-    alert(`Error al descargar formato ${format}`)
+    toast.error(`Error al descargar formato ${format}`)
   }
 }
 

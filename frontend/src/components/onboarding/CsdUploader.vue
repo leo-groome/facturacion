@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import api from '@/services/api'
+import { useToast } from '@/composables/useToast'
 
+const toast = useToast()
 const certFile = ref<File | null>(null)
 const keyFile = ref<File | null>(null)
 const password = ref('')
@@ -9,7 +11,7 @@ const isUploading = ref(false)
 
 const handleUpload = async () => {
   if (!certFile.value || !keyFile.value || !password.value) {
-    alert('Por favor llene todos los campos (CER, KEY y Contraseña).')
+    toast.error('Por favor llene todos los campos (CER, KEY y Contraseña).')
     return
   }
   isUploading.value = true
@@ -24,9 +26,9 @@ const handleUpload = async () => {
          'Content-Type': 'multipart/form-data'
       }
     })
-    alert('CSD subido y encriptado exitosamente.')
+    toast.success('CSD subido y encriptado exitosamente.')
   } catch (error: any) {
-    alert("Error al procesar CSD: " + (error.response?.data?.detail || error.message))
+    toast.error('Error al procesar CSD: ' + (error.response?.data?.detail || error.message))
   } finally {
     isUploading.value = false
   }

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import api from '@/services/api'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const keys = ref<any[]>([])
 const isLoading = ref(true)
@@ -23,7 +26,7 @@ const fetchKeys = async () => {
 
 const generateKey = async () => {
   if(!newKeyName.value) {
-    alert("Proporcione un nombre identificador para la llave.")
+    toast.error('Proporcione un nombre identificador para la llave.')
     return
   }
   isGenerating.value = true
@@ -39,7 +42,7 @@ const generateKey = async () => {
         ? e.response.data.detail.map((d: any) => d.msg).join(', ') 
         : e.response.data.detail
     }
-    alert("Error al generar llave de transaccion B2B: " + errorDetail)
+    toast.error('Error al generar llave de transaccion B2B: ' + errorDetail)
   } finally {
     isGenerating.value = false
   }
@@ -52,7 +55,7 @@ const deleteKey = async (id: string) => {
     await api.delete(`/apikeys/${id}`)
     fetchKeys()
   } catch(e: any) {
-    alert("Error al eliminar la llave: " + (e.response?.data?.detail || e.message))
+    toast.error('Error al eliminar la llave: ' + (e.response?.data?.detail || e.message))
   }
 }
 

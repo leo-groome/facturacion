@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import ToastHost from '@/components/ToastHost.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -84,6 +85,8 @@ function handleLogout() {
         </RouterView>
       </div>
     </main>
+
+    <ToastHost />
   </div>
 </template>
 

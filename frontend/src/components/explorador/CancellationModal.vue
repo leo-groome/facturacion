@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import api from '@/services/api'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const props = defineProps<{
   show: boolean
@@ -18,7 +21,7 @@ const formData = ref({
 
 const submitCancellation = async () => {
   if (formData.value.motivo === '01' && !formData.value.folio_sustituto) {
-    alert("Para la clave 01, es obligatorio indicar el Folio que la sustituye.")
+    toast.error('Para la clave 01, es obligatorio indicar el Folio que la sustituye.')
     return
   }
   
@@ -30,11 +33,11 @@ const submitCancellation = async () => {
       folio_sustituto: formData.value.motivo === '01' ? formData.value.folio_sustituto : null
     })
     
-    alert("La factura ha entrado a proceso de cancelación con el integrador.")
+    toast.success('La factura ha entrado a proceso de cancelación con el integrador.')
     emit('cancelled')
     emit('close')
   } catch(error: any) {
-    alert("Fallo la petición: " + (error.response?.data?.detail || error.message))
+    toast.error('Fallo la petición: ' + (error.response?.data?.detail || error.message))
   } finally {
     isSubmitting.value = false
   }

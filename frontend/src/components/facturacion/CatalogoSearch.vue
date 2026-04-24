@@ -23,12 +23,14 @@ const keyword = ref('')
 const results = ref<CatalogoItem[]>([])
 const isSearching = ref(false)
 const showDropdown = ref(false)
+const searchError = ref('')
 const minChars = props.minChars ?? 3
 
 let timer: ReturnType<typeof setTimeout> | null = null
 
 watch(keyword, (val) => {
   if (timer) clearTimeout(timer)
+  searchError.value = ''
   if (val.length < minChars) {
     results.value = []
     showDropdown.value = false
@@ -40,9 +42,11 @@ watch(keyword, (val) => {
       const { data } = await api.get(`/catalogos/${props.endpoint}?keyword=${encodeURIComponent(val)}`)
       results.value = data.resultados ?? []
       showDropdown.value = results.value.length > 0
-    } catch (e) {
-      console.error(`Error buscando /catalogos/${props.endpoint}:`, e)
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail ?? 'Error al consultar catálogo SAT'
+      searchError.value = msg
       results.value = []
+      showDropdown.value = false
     } finally {
       isSearching.value = false
     }
@@ -76,6 +80,7 @@ const inputClass =
       @blur="onBlur"
     />
     <div v-if="isSearching" class="absolute right-3 top-3 text-xs text-slate-400">Buscando…</div>
+    <p v-if="searchError" class="text-xs text-red-500 mt-1">{{ searchError }}</p>
     <ul
       v-if="showDropdown"
       class="absolute z-30 w-full bg-white border border-slate-200 mt-1 shadow-xl rounded-lg max-h-56 overflow-y-auto"

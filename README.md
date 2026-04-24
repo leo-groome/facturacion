@@ -101,6 +101,10 @@ Inicializar la base de datos (solo la primera vez):
 python setup_db.py
 ```
 
+> **Migraciones:** Si al actualizar el código ves un error de columna inexistente (`UndefinedColumn`),
+> alguien agregó una columna nueva al schema. Vuelve a correr `python setup_db.py` — es idempotente
+> y solo aplicará los cambios que falten.
+
 Arrancar el servidor:
 ```bash
 python run.py

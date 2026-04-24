@@ -16,7 +16,13 @@
       "Bash(venv/Scripts/python.exe -c ' *)",
       "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"FinalTest\",\"rfc\":\"FNLT010101AA4\",\"password\":\"final123\"}')",
       "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"rfc\":\"FNLT010101AA4\",\"password\":\"final123\"}')",
-      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"Dupe\",\"rfc\":\"FNLT010101AA4\",\"password\":\"other\"}')"
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' -X POST http://127.0.0.1:8000/api/v1/auth/signup -H 'Content-Type: application/json' -d '{\"nombre_empresa\":\"Dupe\",\"rfc\":\"FNLT010101AA4\",\"password\":\"other\"}')",
+      "Bash(py -3.12 -c \"from app.slices.facturacion import router, service, calculo, schema; print\\('OK: facturacion imports'\\)\")",
+      "Bash(py -3.12 -c \"from app.slices.facturacion import router, calculo; from app.slices.catalogos import router as cr; print\\('imports OK'\\)\")",
+      "Bash(py -3.12 -m py_compile app/slices/facturacion/calculo.py app/slices/facturacion/router.py app/slices/catalogos/router.py)",
+      "Bash(git add *)",
+      "Bash(git -c core.autocrlf=false commit -m ' *)",
+      "Bash(pnpm type-check *)"
     ]
   }
 }

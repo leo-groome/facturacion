@@ -50,17 +50,23 @@ async def _fetch_catalog(facturama_path: str, cache_key: str) -> CatalogoSearchR
 
     base_url = os.getenv("FACTURAMA_API_URL", "https://apisandbox.facturama.mx")
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(
-            f"{base_url}{facturama_path}",
-            headers=_get_facturama_headers(),
-        )
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Error Facturama Catalogo [{response.status_code}]: {response.text}",
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"{base_url}{facturama_path}",
+                headers=_get_facturama_headers(),
             )
-        data = response.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Timeout conectando a Facturama (catálogos SAT)")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Error de red con Facturama: {e}")
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error Facturama Catalogo [{response.status_code}]: {response.text}",
+        )
+    data = response.json()
 
     resultados = [
         CatalogoItemResponse(Value=item.get("Value"), Name=item.get("Name"))
@@ -81,18 +87,24 @@ async def _fetch_catalog_search(
 
     base_url = os.getenv("FACTURAMA_API_URL", "https://apisandbox.facturama.mx")
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(
-            f"{base_url}{facturama_path}",
-            params={"keyword": keyword},
-            headers=_get_facturama_headers(),
-        )
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Error Facturama [{response.status_code}]: {response.text}",
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"{base_url}{facturama_path}",
+                params={"keyword": keyword},
+                headers=_get_facturama_headers(),
             )
-        data = response.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Timeout conectando a Facturama (catálogos SAT)")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Error de red con Facturama: {e}")
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error Facturama [{response.status_code}]: {response.text}",
+        )
+    data = response.json()
 
     resultados = [
         CatalogoItemResponse(Value=item.get("Value"), Name=item.get("Name"))

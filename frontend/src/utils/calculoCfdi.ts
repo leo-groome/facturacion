@@ -27,6 +27,10 @@ export interface Concepto {
   descuento: number
   objeto_imp: ObjetoImp
   impuestos: Impuesto[]
+  // Configuración fiscal (solo UI — alimenta recalcularConcepto, no se envía al backend)
+  iva_tasa?: number       // 0.16 default | 0.08 frontera | 0 (tasa 0)
+  ieps_tasa?: number      // 0.08, 0.25, 0.265, 0.30, 0.53, 1.60, etc. 0/undefined = sin IEPS
+  iva_ret_tasa?: number   // 0.106667, 0.04, 0.06, 0.16, etc. 0/undefined = sin retención
 }
 
 export interface ContextoFiscal {
@@ -63,13 +67,34 @@ export function recalcularConcepto(c: Concepto, ctx: ContextoFiscal): Concepto {
   const impuestos: Impuesto[] = []
 
   if (c.objeto_imp === '02' && baseD.gt(0)) {
+    const ivaTasa = c.iva_tasa ?? Number(IVA_TASA)
     impuestos.push({
       tipo: 'IVA',
-      tasa: Number(IVA_TASA),
+      tasa: ivaTasa,
       base,
-      importe: q6(baseD.mul(IVA_TASA)),
+      importe: q6(baseD.mul(ivaTasa)),
       es_retencion: false,
     })
+
+    if (c.ieps_tasa && c.ieps_tasa > 0) {
+      impuestos.push({
+        tipo: 'IEPS',
+        tasa: c.ieps_tasa,
+        base,
+        importe: q6(baseD.mul(c.ieps_tasa)),
+        es_retencion: false,
+      })
+    }
+
+    if (c.iva_ret_tasa && c.iva_ret_tasa > 0) {
+      impuestos.push({
+        tipo: 'IVA_RET',
+        tasa: c.iva_ret_tasa,
+        base,
+        importe: q6(baseD.mul(c.iva_ret_tasa)),
+        es_retencion: true,
+      })
+    }
 
     if (ctx.emisorRegimen === RESICO_REGIMEN && esPersonaMoral(ctx.receptorRfc)) {
       impuestos.push({

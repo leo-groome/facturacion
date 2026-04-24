@@ -95,6 +95,14 @@ Shared Schema strategy: every DB table has an `organization_id` column. Every ps
 - `facturas` — Invoices (folio_fiscal, facturama_id, receptor_*, totals, estado, xml_content)
 - `api_keys` — B2B keys (prefix, hashed_key bcrypt, activa)
 
+### Migraciones de schema
+
+`backend/setup_db.py` es el único DDL versionado. Usa `CREATE TABLE IF NOT EXISTS` (idempotente, seguro de re-ejecutar), pero **no hay sistema de migraciones** (Alembic no está configurado). Consecuencias:
+
+- Al cambiar una columna existente hay que aplicar el DDL manualmente en Neon antes de correr la app, y reflejar el cambio en `setup_db.py` para nuevos despliegues.
+- No hay rollback automático. Antes de cambios destructivos (drop/alter), respaldar la tabla afectada.
+- Si el proyecto crece, evaluar migrar a Alembic.
+
 ## Environment Variables
 
 Backend `.env` (never commit):

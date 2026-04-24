@@ -4,10 +4,11 @@ import os
 
 from cryptography.fernet import Fernet
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from psycopg.rows import dict_row
 
 from app.core.dependencies import get_current_tenant
 from .facturama_client import FacturamaClient
-from .schema import CSDUploadResponse
+from .schema import CSDUploadResponse, EmisorMeResponse
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ _encryptor = _load_encryptor()
 async def upload_csd(
     request: Request,
     rfc: str = Form(..., min_length=12, max_length=13, description="RFC del contribuyente"),
+    regimen_fiscal: str = Form(..., pattern=r"^6\d{2}$", description="Codigo c_RegimenFiscal SAT (ej. 601, 612, 626)"),
     cer_file: UploadFile = File(..., description="Archivo .cer"),
     key_file: UploadFile = File(..., description="Archivo .key"),
     password: str = Form(..., description="Contrasena del CSD"),
@@ -71,15 +73,16 @@ async def upload_csd(
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    INSERT INTO emisores (organization_id, rfc, cer_encrypted, key_encrypted, password_encrypted)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO emisores (organization_id, rfc, regimen_fiscal, cer_encrypted, key_encrypted, password_encrypted)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (organization_id, rfc) DO UPDATE
-                        SET cer_encrypted = EXCLUDED.cer_encrypted,
+                        SET regimen_fiscal = EXCLUDED.regimen_fiscal,
+                            cer_encrypted = EXCLUDED.cer_encrypted,
                             key_encrypted = EXCLUDED.key_encrypted,
                             password_encrypted = EXCLUDED.password_encrypted,
                             facturama_synced = FALSE;
                     """,
-                    (tenant["tenant_id"], rfc.upper(), encrypted_cer, encrypted_key, encrypted_password)
+                    (tenant["tenant_id"], rfc.upper(), regimen_fiscal, encrypted_cer, encrypted_key, encrypted_password)
                 )
                 await conn.commit()
     except Exception:
@@ -108,5 +111,43 @@ async def upload_csd(
 
     return CSDUploadResponse(
         message="CSD validado y guardado cifrado.",
-        rfc=rfc
+        rfc=rfc,
+        regimen_fiscal=regimen_fiscal,
+    )
+
+
+@router.get("/me", response_model=EmisorMeResponse)
+async def get_emisor_actual(
+    request: Request,
+    tenant: dict = Depends(get_current_tenant),
+):
+    """Retorna el emisor (CSD) registrado para el tenant autenticado.
+
+    Usado por el frontend para habilitar la lógica RESICO (retención ISR 1.25%).
+    """
+    db_pool = request.app.state.db_pool
+    async with db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                """
+                SELECT rfc, regimen_fiscal, facturama_synced
+                FROM emisores
+                WHERE organization_id = %s
+                LIMIT 1
+                """,
+                (tenant["tenant_id"],),
+            )
+            row = await cur.fetchone()
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No hay CSD registrado para este tenant.",
+        )
+
+    return EmisorMeResponse(
+        rfc=row["rfc"],
+        regimen_fiscal=row["regimen_fiscal"],
+        es_resico=row["regimen_fiscal"] == "626",
+        facturama_synced=row["facturama_synced"],
     )

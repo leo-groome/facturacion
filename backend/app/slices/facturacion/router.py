@@ -1,5 +1,4 @@
 import logging
-from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -8,6 +7,8 @@ from psycopg.rows import dict_row
 
 from app.core.dependencies import get_current_tenant
 from app.slices.emisores.facturama_client import FacturamaClient
+from . import calculo
+from .calculo import validar_y_totalizar
 from .schema import (
     CancelacionRequest,
     EmisionDraftRequest,
@@ -15,6 +16,22 @@ from .schema import (
     EmisionResponse,
     PaginatedFacturasResponse,
 )
+
+
+async def _get_emisor(db_pool, org_id: str) -> dict:
+    async with db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT rfc, regimen_fiscal FROM emisores WHERE organization_id = %s LIMIT 1",
+                (org_id,),
+            )
+            row = await cur.fetchone()
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No hay un CSD registrado para este tenant. Sube tu certificado en /emisores/csd primero.",
+        )
+    return row
 
 logger = logging.getLogger(__name__)
 
@@ -35,40 +52,46 @@ _MEDIA_TYPES = {
 @router.post("/preview", response_model=EmisionDraftResponse)
 async def preview_factura(
     draft: EmisionDraftRequest,
+    request: Request,
     tenant: dict = Depends(get_current_tenant),
 ):
     """
     Valida y calcula el borrador CFDI 4.0 con precision Decimal.
     No llama a Facturama, no consume timbre fiscal.
     """
-    subtotal = Decimal("0.00")
-    traslados = Decimal("0.00")
-    retenciones = Decimal("0.00")
+    db_pool = request.app.state.db_pool
+    emisor = await _get_emisor(db_pool, tenant["tenant_id"])
 
-    for concepto in draft.conceptos:
-        importe_esperado = (concepto.cantidad * concepto.valor_unitario).quantize(Decimal("0.01"))
-        if abs(concepto.importe - importe_esperado) > Decimal("0.01"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Importe del concepto '{concepto.descripcion}' incorrecto. Cantidad x ValorUnitario != Importe.",
-            )
+    # Validacion SAT: UsoCFDI debe ser compatible con el regimen del receptor.
+    calculo.validar_uso_cfdi(draft.receptor_regimen, draft.uso_cfdi)
 
-        subtotal += concepto.importe - concepto.descuento
+    try:
+        subtotal, traslados, retenciones, total = validar_y_totalizar(
+            draft.conceptos,
+            emisor["regimen_fiscal"],
+            draft.receptor_rfc,
+            emisor_rfc=emisor["rfc"],
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
 
-        for imp in concepto.impuestos:
-            if imp.tipo in ("IVA", "IEPS"):
-                traslados += imp.importe
-            elif imp.tipo in ("ISR", "IVA_RET"):
-                retenciones += imp.importe
-
-    total = subtotal + traslados - retenciones
+    # Breakdown: cuánto de `retenciones` corresponde al ISR 1.25% RESICO PF → PM.
+    retencion_resico = calculo.aplicar_retencion_resico(
+        regimen_emisor=emisor["regimen_fiscal"],
+        rfc_emisor=emisor["rfc"],
+        rfc_receptor=draft.receptor_rfc,
+        subtotal=subtotal,
+    )
 
     return EmisionDraftResponse(
         subtotal=subtotal,
         total_impuestos_trasladados=traslados,
         total_impuestos_retenidos=retenciones,
+        retencion_resico_isr=retencion_resico,
         total=total,
-        preview_json=draft.model_dump(),
+        preview_json=draft.model_dump(mode="json"),
     )
 
 
@@ -90,11 +113,11 @@ async def emitir_factura(
     db_pool = request.app.state.db_pool
     org_id = tenant["tenant_id"]
 
-    # Obtener RFC del emisor registrado para este tenant
+    # Obtener régimen del emisor + validar existencia
     async with db_pool.connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
-                "SELECT rfc FROM emisores WHERE organization_id = %s LIMIT 1",
+                "SELECT rfc, regimen_fiscal FROM emisores WHERE organization_id = %s LIMIT 1",
                 (org_id,),
             )
             emisor = await cur.fetchone()
@@ -105,20 +128,21 @@ async def emitir_factura(
             detail="No hay un CSD registrado para este tenant. Sube tu certificado en /emisores/csd primero.",
         )
 
-    # Calcular totales (misma logica que preview)
-    subtotal = Decimal("0.00")
-    traslados = Decimal("0.00")
-    retenciones = Decimal("0.00")
+    # Validacion SAT: UsoCFDI debe ser compatible con el regimen del receptor.
+    calculo.validar_uso_cfdi(draft.receptor_regimen, draft.uso_cfdi)
 
-    for concepto in draft.conceptos:
-        subtotal += concepto.importe - concepto.descuento
-        for imp in concepto.impuestos:
-            if imp.tipo in ("IVA", "IEPS"):
-                traslados += imp.importe
-            elif imp.tipo in ("ISR", "IVA_RET"):
-                retenciones += imp.importe
-
-    total = subtotal + traslados - retenciones
+    # Red-team check en servidor: validar y totalizar con régimen + RFC del emisor
+    try:
+        subtotal, traslados, retenciones, total = validar_y_totalizar(
+            draft.conceptos,
+            emisor["regimen_fiscal"],
+            draft.receptor_rfc,
+            emisor_rfc=emisor["rfc"],
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
 
     # Construir payload CFDI 4.0 para Facturama
     cfdi_payload = {
@@ -144,16 +168,17 @@ async def emitir_factura(
                 "Discount": float(c.descuento) if c.descuento else None,
                 "Total": float(
                     c.importe - c.descuento
-                    + sum(i.importe for i in c.impuestos if i.tipo in ("IVA", "IEPS"))
-                    - sum(i.importe for i in c.impuestos if i.tipo in ("ISR", "IVA_RET"))
+                    + sum(i.importe for i in c.impuestos if not i.es_retencion)
+                    - sum(i.importe for i in c.impuestos if i.es_retencion)
                 ),
+                "TaxObject": c.objeto_imp,
                 "Taxes": [
                     {
                         "Name": imp.tipo.replace("_RET", ""),
                         "Rate": float(imp.tasa),
                         "Total": float(imp.importe),
-                        "Base": float(c.importe - c.descuento),
-                        "IsRetention": imp.tipo in ("ISR", "IVA_RET"),
+                        "Base": float(imp.base),
+                        "IsRetention": imp.es_retencion,
                     }
                     for imp in c.impuestos
                 ],
@@ -213,6 +238,18 @@ async def emitir_factura(
             },
         )
 
+    # Envio por email post-timbrado (best-effort: no aborta si falla)
+    email_enviado = False
+    if draft.enviar_por_email and draft.receptor_email and facturama_id:
+        try:
+            await client.send_cfdi_by_email(facturama_id, draft.receptor_email)
+            email_enviado = True
+        except Exception:
+            logger.exception(
+                "Fallo al enviar CFDI por email. facturama_id=%s email=%s",
+                facturama_id, draft.receptor_email,
+            )
+
     return EmisionResponse(
         id=str(row["id"]),
         folio_fiscal=folio_fiscal,
@@ -221,6 +258,7 @@ async def emitir_factura(
         receptor_rfc=draft.receptor_rfc,
         receptor_razon_social=draft.receptor_razon_social,
         total=total,
+        email_enviado=email_enviado,
     )
 
 

@@ -35,13 +35,18 @@ CREATE TABLE IF NOT EXISTS emisores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     rfc VARCHAR(13) NOT NULL,
+    regimen_fiscal VARCHAR(10) NOT NULL DEFAULT '626',
     cer_encrypted TEXT,
     key_encrypted TEXT,
     password_encrypted TEXT,
     facturama_synced BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(organization_id, rfc)
+    UNIQUE(organization_id, rfc),
+    CONSTRAINT chk_regimen_fiscal CHECK (regimen_fiscal ~ '^6\d{2}$')
 );
+
+-- Migracion idempotente para instalaciones previas
+ALTER TABLE emisores ADD COLUMN IF NOT EXISTS regimen_fiscal VARCHAR(10) NOT NULL DEFAULT '626';
 
 CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

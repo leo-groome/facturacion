@@ -167,10 +167,21 @@ async def listar_metodos_pago(
 
 @router.get("/usos-cfdi", response_model=CatalogoSearchResponse)
 async def listar_usos_cfdi(
+    regimen: str | None = Query(None, pattern=r"^6\d{2}$", description="Codigo c_RegimenFiscal para filtrar usos permitidos (Anexo 20 SAT)"),
     tenant: dict = Depends(get_current_tenant),
 ):
-    """Lista los usos CFDI del receptor (c_UsoCFDI). Ej: G01=Mercancias, G03=Gastos generales."""
-    return await _fetch_catalog("/catalogs/CfdiUses", "usos_cfdi")
+    """
+    Lista los usos CFDI del receptor (c_UsoCFDI). Si se pasa `regimen`, filtra solo
+    los usos compatibles con ese regimen segun la matriz del Anexo 20 SAT.
+    """
+    catalogo = await _fetch_catalog("/catalogs/CfdiUses", "usos_cfdi")
+    if not regimen:
+        return catalogo
+
+    from app.slices.facturacion.calculo import usos_cfdi_permitidos
+    permitidos = set(usos_cfdi_permitidos(regimen))
+    filtrados = [item for item in catalogo.resultados if item.Value in permitidos]
+    return CatalogoSearchResponse(resultados=filtrados)
 
 
 # ---------------------------------------------------------------------------

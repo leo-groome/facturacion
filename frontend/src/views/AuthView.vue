@@ -10,6 +10,7 @@ const isLogin = ref(true)
 const loginForm = reactive({ rfc: '', password: '' })
 const signupForm = reactive({ nombre_empresa: '', rfc: '', password: '' })
 const rfcError = ref<string | null>(null)
+const showPassword = ref(false)
 
 // RFC mexicano: 3-4 letras + 6 dígitos (fecha) + 3 alfanuméricos (homoclave)
 const RFC_REGEX = /^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/
@@ -117,13 +118,29 @@ const handleSignup = async () => {
 
               <div class="space-y-1">
                 <label class="text-xs font-bold text-slate-400 uppercase ml-1">Contraseña</label>
-                <input 
-                  v-model="(isLogin ? loginForm : signupForm).password"
-                  type="password"
-                  placeholder="••••••••"
-                  class="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-slate-600"
-                  required
-                />
+                <div class="relative">
+                  <input
+                    v-model="(isLogin ? loginForm : signupForm).password"
+                    :type="showPassword ? 'text' : 'password'"
+                    placeholder="••••••••"
+                    class="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-slate-600"
+                    required
+                  />
+                  <button
+                    type="button"
+                    @click="showPassword = !showPassword"
+                    :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                    class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-blue-400 transition-colors"
+                  >
+                    <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7.5a11.82 11.82 0 014.02-5.47M9.88 9.88a3 3 0 104.24 4.24M10.73 5.08A10.43 10.43 0 0112 5c5 0 9.27 3.11 11 7.5a11.78 11.78 0 01-4.17 5.3M3 3l18 18" />
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                      <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div v-if="authStore.error" class="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl text-xs font-medium text-center">

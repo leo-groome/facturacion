@@ -105,6 +105,25 @@ class FacturamaClient:
             return base64.b64decode(content_b64)
 
     # ------------------------------------------------------------------
+    # CFDI 4.0 — Envio por email
+    # ------------------------------------------------------------------
+
+    async def send_cfdi_by_email(self, facturama_id: str, email: str) -> Dict[str, Any]:
+        """
+        POST /cfdi/{id}/email — Envia el CFDI timbrado (XML + PDF) al correo indicado.
+        Retorna el JSON de Facturama; no es critico si falla (el CFDI ya esta timbrado).
+        """
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{self.base_url}/cfdi/{facturama_id}/email",
+                params={"email": email},
+                headers=self.headers,
+            )
+            if response.status_code not in (200, 201, 202, 204):
+                raise Exception(f"Facturama Email Error [{response.status_code}]: {response.text}")
+            return response.json() if response.text else {"status": "sent"}
+
+    # ------------------------------------------------------------------
     # CFDI 4.0 — Cancelación
     # ------------------------------------------------------------------
 
